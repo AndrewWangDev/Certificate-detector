@@ -1,10 +1,6 @@
 # Certificate Detector
 
 <p align="center">
-  <img src="logo.png" alt="Certificate Detector Logo" width="128" height="128">
-</p>
-
-<p align="center">
   <a href="https://github.com/AndrewWangDev/Certificate-detector/blob/main/LICENSE">
     <img src="https://img.shields.io/github/license/AndrewWangDev/Certificate-detector.svg?style=flat-square" alt="License">
   </a>
