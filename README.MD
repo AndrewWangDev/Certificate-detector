@@ -12,7 +12,7 @@
   <img src="https://img.shields.io/badge/security-pinning-success.svg?style=flat-square" alt="Security: Pinning">
 </p>
 
-> A robust, lightweight Python utility designed to streamline the extraction of Base64-encoded SHA-256 fingerprints for SSL/TLS Certificates and Subject Public Key Info (SPKI).
+> Automatically extracts the SHA-256 fingerprints of TLS certificates and public keys from domain names and .pem files, which can be used to fix certificates on proxy clients.
 
 ## 📖 Overview
 

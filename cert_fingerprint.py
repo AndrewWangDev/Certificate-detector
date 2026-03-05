@@ -14,9 +14,8 @@ try:
 except Exception:
     CRYPTOGRAPHY_AVAILABLE = False
 
-def sha256_base64(der_bytes: bytes) -> str:
-    digest = hashlib.sha256(der_bytes).digest()
-    return base64.b64encode(digest).decode('ascii')
+def sha256_hex(der_bytes: bytes) -> str:
+    return hashlib.sha256(der_bytes).hexdigest()
 
 def get_cert_der_from_domain(hostname: str, port: int = 443, timeout: float = 5.0) -> bytes:
     ctx = ssl.create_default_context()
@@ -59,7 +58,7 @@ def get_pubkey_der_from_cert_der(der: bytes) -> bytes:
     return pub_der
 
 def main():
-    p = argparse.ArgumentParser(description="Compute Base64-encoded SHA-256 fingerprint of a certificate (from domain or PEM file)")
+    p = argparse.ArgumentParser(description="Compute SHA-256 hex fingerprint of a certificate (from domain or PEM file)")
     group = p.add_mutually_exclusive_group(required=True)
     group.add_argument('--domain', '-d', help='Domain or host:port (default port 443)')
     group.add_argument('--file', '-f', help='Local PEM certificate file path')
@@ -82,7 +81,7 @@ def main():
                 hostname = host
                 port = 443
             der = get_cert_der_from_domain(hostname, port, timeout=args.timeout)
-            cert_fp = sha256_base64(der)
+            cert_fp = sha256_hex(der)
             if args.output == 'cert':
                 print(cert_fp)
             elif args.output == 'both':
@@ -91,7 +90,7 @@ def main():
             if args.output in ('pubkey','both'):
                 try:
                     pub_der = get_pubkey_der_from_cert_der(der)
-                    pub_fp = sha256_base64(pub_der)
+                    pub_fp = sha256_hex(pub_der)
                     if args.output == 'pubkey':
                         print(pub_fp)
                     else:
@@ -101,7 +100,7 @@ def main():
                     sys.exit(1)
         else:
             der = get_cert_der_from_pem_file(args.file)
-            cert_fp = sha256_base64(der)
+            cert_fp = sha256_hex(der)
             if args.output == 'cert':
                 print(cert_fp)
             elif args.output == 'both':
@@ -109,7 +108,8 @@ def main():
             if args.output in ('pubkey','both'):
                 try:
                     pub_der = get_pubkey_der_from_cert_der(der)
-                    pub_fp = sha256_base64(pub_der)
+                    pub_fp = sha256_hex(pub_der)
+                    #output hex format
                     if args.output == 'pubkey':
                         print(pub_fp)
                     else:
