@@ -20,13 +20,13 @@ Implementing **Client-Side Certificate or Public Key Pinning** requires embeddin
 
 ## ✨ Key Features
 
-* **Live Server Inspection:** Directly connect to remote endpoints (IPv4, IPv6, domains, full URLs) and extract peer certificates via TLS handshakes.
+* **Live Server Inspection:** Directly connect to remote endpoints (IPv4, IPv6, domains, full URLs with or without auth/path) and extract peer certificates via TLS handshakes.
 * **Certificate Chain & Intermediate CA Support:** Retrieve and extract fingerprints for the entire certificate chain (`--chain`), making resilient intermediate CA pinning effortless.
 * **Local File Parsing:** Robust parsing of local `.pem`, `.crt`, or binary `.der` certificate files, with safe rejection of non-certificate binaries.
 * **SPKI Extraction:** Automatically computes Subject Public Key Info (SPKI) fingerprints, recommended for resilient pinning strategies.
 * **Multiple Output Formats:** Supports both standard hexadecimal (Hex) and Base64 formats (ready for Android, iOS, and OkHttp).
 * **Insecure Mode for Proxies / Self-Signed:** Inspect servers with self-signed certificates or debugging proxies without TLS verification errors.
-* **Robust Target Parsing:** Seamlessly accepts domain names, `host:port`, IPv6 notation (`[::1]:8443`), and browser-copied URLs (`https://example.com/api`).
+* **Robust Target Parsing:** Seamlessly accepts domain names, `host:port`, IPv6 notation (`[::1]:8443`), and browser-copied URLs (`https://user:pass@example.com:8443/api`).
 * **Zero OS Dependencies:** Runs on any OS with Python, bypassing the need for native OpenSSL binaries.
 
 ---
@@ -41,7 +41,7 @@ Testing the fingerprint extraction against a live domain:
 
 ## ⚙️ Installation
 
-**Prerequisites:** Python 3.6+
+**Prerequisites:** Python 3.6+ *(Note: Remote TLS `--chain` extraction requires Python 3.13+; local fullchain PEM parsing is supported on all Python versions).*
 
 1.  **Clone the repository:**
     ```bash
@@ -82,23 +82,29 @@ pubkey:A1b2C3d4E5...
 ```
 
 ### 2. Full URL Parsing
-Directly paste browser URLs with protocols and paths:
+Directly paste browser URLs with protocols, credentials, and paths:
 ```bash
 python cert_detector.py -d https://api.example.com:8443/graphql
 ```
 
 ### 3. Extract Full Certificate Chain (Intermediate CAs)
-Pinning intermediate CAs instead of leaf certificates prevents outages during frequent leaf certificate renewals:
+Pinning intermediate CAs instead of leaf certificates prevents outages during frequent leaf certificate renewals.
+
+*(Note: Extracting full remote TLS chains requires Python 3.13+; local fullchain PEM files are supported across all Python 3.6+ versions).*
+
 ```bash
 python cert_detector.py -d example.com --chain
 ```
 *Output:*
 ```text
-[0] cert:e3b02826789... (Leaf)
+[0] cert:e3b02826789...
 [0] pubkey:96d43a697c...
-[1] cert:948b7111af4... (Intermediate CA)
+[1] cert:948b7111af4...
 [1] pubkey:cc6800e0e5...
 ```
+*Index explanation:*
+- `[0]`: Leaf (End-Entity) certificate and SPKI
+- `[1]`: Intermediate CA certificate and SPKI
 
 ### 4. Base64 Format for Android / OkHttp Pinning
 Mobile frameworks (Android `network_security_config.xml`, OkHttp, iOS) require Base64-encoded hashes:
@@ -142,7 +148,7 @@ python cert_detector.py --file ./certs/production_cert.pem
 | :--- | :--- | :--- | :--- |
 | `--domain` | `-d` | Target domain, URL, IP (IPv4/IPv6), or host:port (e.g. `api.com:443`, `https://api.com/v1`, `[::1]:8443`). | Mutually exclusive with `--file`. |
 | `--file` | `-f` | Path to a local PEM, CRT, or binary DER certificate file. | Mutually exclusive with `--domain`. |
-| `--chain` | `-c` | Extract and display fingerprints for all certificates in the chain (Intermediate CAs). | No |
+| `--chain` | `-c` | Extract and display fingerprints for all certificates in the chain (Intermediate CAs). Requires Python 3.13+ for remote endpoints. | No |
 | `--timeout` | `-t` | TLS handshake timeout in seconds (Default: `5.0`). | No |
 | `--output` | `-o` | Define output mode: `cert`, `pubkey`, or `both` (Default: `both`). | No |
 | `--format` | | Hash encoding format: `hex` or `base64` (Default: `hex`). | No |

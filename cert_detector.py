@@ -34,22 +34,33 @@ def format_digest(der_bytes: bytes, fmt: str = 'hex') -> str:
 def parse_target(target: str) -> Tuple[str, int]:
     """
     Robustly parse target into (hostname_or_ip, port).
-    Supports URLs, domain names, IPv4, IPv6 ([::1]:port or bare ::1), and custom ports.
+    Supports URLs (with or without auth/path), domain names, IPv4, IPv6 ([::1]:port or bare ::1), and custom ports.
     """
     target = target.strip()
     if not target:
         raise ValueError("Target host/domain cannot be empty.")
 
-    # 1. Handle URLs (e.g. https://example.com:8443/path -> example.com:8443)
-    if '://' in target:
-        parsed = urlsplit(target)
-        target = parsed.netloc or parsed.path
-    elif '/' in target:
-        target = target.split('/', 1)[0]
-
     port = 443
 
-    # 2. Bracketed IPv6 notation: [::1]:8443 or [::1]
+    # 1. Handle URLs with schemes (e.g. https://user:pass@example.com:8443/path)
+    if '://' in target:
+        parsed = urlsplit(target)
+        if not parsed.hostname:
+            raise ValueError(f"Invalid target URL: '{target}' contains no valid host.")
+        hostname = parsed.hostname
+        if parsed.port is not None:
+            port = parsed.port
+        if not (1 <= port <= 65535):
+            raise ValueError(f"Port must be between 1 and 65535, got {port}")
+        return hostname, port
+
+    # 2. Handle paths in plain targets (e.g. example.com/api -> example.com)
+    if '/' in target:
+        target = target.split('/', 1)[0].strip()
+        if not target:
+            raise ValueError("Target host/domain cannot be empty.")
+
+    # 3. Bracketed IPv6 notation: [::1]:8443 or [::1]
     if target.startswith('['):
         if ']:' in target:
             host_part, port_s = target.split(']:', 1)
@@ -62,14 +73,14 @@ def parse_target(target: str) -> Tuple[str, int]:
             hostname = target.strip('[]')
             port = 443
     else:
-        # 3. Check if target is a bare IPv6 address without brackets
+        # 4. Check if target is a bare IPv6 address without brackets
         try:
             ipaddress.IPv6Address(target)
             return target, 443
         except ValueError:
             pass
 
-        # 4. Standard host:port or IPv4:port
+        # 5. Standard host:port or IPv4:port
         if ':' in target:
             host_part, port_s = target.rsplit(':', 1)
             try:
@@ -81,7 +92,11 @@ def parse_target(target: str) -> Tuple[str, int]:
             hostname = target
             port = 443
 
-    # 5. Global port range validation for all targets (including IPv6)
+    hostname = hostname.strip()
+    if not hostname:
+        raise ValueError("Target host/domain cannot be empty.")
+
+    # 6. Global port range validation for all targets
     if not (1 <= port <= 65535):
         raise ValueError(f"Port must be between 1 and 65535, got {port}")
 
@@ -93,7 +108,8 @@ def get_cert_ders_from_domain(
     port: int = 443,
     timeout: float = 5.0,
     insecure: bool = False,
-    sni: Optional[str] = None
+    sni: Optional[str] = None,
+    require_chain: bool = False
 ) -> List[bytes]:
     """
     Connect to a remote host via TLS and retrieve the peer certificates in DER format.
@@ -133,6 +149,14 @@ def get_cert_ders_from_domain(
                     chain = ssock.get_verified_chain()
                     if chain:
                         return list(chain)
+
+                # If user explicitly requested the certificate chain, warn about runtime limitation (NEW-02)
+                if require_chain:
+                    print(
+                        "Warning: Full remote TLS certificate chain extraction requires Python 3.13+. "
+                        "Only the peer leaf certificate was retrieved on this Python runtime.",
+                        file=sys.stderr
+                    )
 
                 # Fallback: retrieve the peer leaf certificate
                 der = ssock.getpeercert(binary_form=True)
@@ -285,7 +309,8 @@ def main():
                 port=port,
                 timeout=args.timeout,
                 insecure=args.insecure,
-                sni=args.sni
+                sni=args.sni,
+                require_chain=args.chain
             )
         else:
             ders = get_cert_ders_from_file(args.file)

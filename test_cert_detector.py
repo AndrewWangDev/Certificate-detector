@@ -25,6 +25,24 @@ class TestCertDetector(unittest.TestCase):
         self.assertEqual(cert_detector.parse_target("http://api.example.com/v1"), ("api.example.com", 443))
         self.assertEqual(cert_detector.parse_target("example.com/some/path"), ("example.com", 443))
 
+        # URLs with Basic Auth credentials (verifies NEW-04 fix)
+        self.assertEqual(
+            cert_detector.parse_target("https://user:password@example.com"),
+            ("example.com", 443)
+        )
+        self.assertEqual(
+            cert_detector.parse_target("https://user:password@example.com:8443/api"),
+            ("example.com", 8443)
+        )
+        self.assertEqual(
+            cert_detector.parse_target("https://user@192.168.1.1:8443"),
+            ("192.168.1.1", 8443)
+        )
+        self.assertEqual(
+            cert_detector.parse_target("https://user:pass@[::1]:8443/v1"),
+            ("::1", 8443)
+        )
+
         # IPv4 cases
         self.assertEqual(cert_detector.parse_target("192.168.1.1"), ("192.168.1.1", 443))
         self.assertEqual(cert_detector.parse_target("127.0.0.1:9443"), ("127.0.0.1", 9443))
@@ -37,11 +55,22 @@ class TestCertDetector(unittest.TestCase):
         self.assertEqual(cert_detector.parse_target("2001:db8::1"), ("2001:db8::1", 443))
         self.assertEqual(cert_detector.parse_target("https://[::1]:8443/api"), ("::1", 8443))
 
-    def test_parse_target_invalid_ports(self):
-        # Empty input
+    def test_parse_target_empty_and_slash_boundaries(self):
+        # Empty input and empty URL components (verifies NEW-01 fix)
         with self.assertRaises(ValueError):
             cert_detector.parse_target("")
+        with self.assertRaises(ValueError):
+            cert_detector.parse_target("   ")
+        with self.assertRaises(ValueError):
+            cert_detector.parse_target("/")
+        with self.assertRaises(ValueError):
+            cert_detector.parse_target("///")
+        with self.assertRaises(ValueError):
+            cert_detector.parse_target("https://")
+        with self.assertRaises(ValueError):
+            cert_detector.parse_target("https:///")
 
+    def test_parse_target_invalid_ports(self):
         # Domain with invalid / out-of-range port
         with self.assertRaises(ValueError):
             cert_detector.parse_target("example.com:abc")
